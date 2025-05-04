@@ -8,7 +8,8 @@
     3. database-persistence-plan.md
     4. chainlit-ui-plan.md
 
-These plans serve as an initial starting point (a warm start), but are expected to undergo several iterations of revision.
+These plans serve as an initial starting point (a warm start), but are expected to undergo several iterations of revision. When creating revisions to the plans, please consult the `plan-sops/` directory. If you don't want to adhere to these standards, that's fine as well; they mostly serve as guidance for planning and iterating with agents in IDEs like cursor.
+
 
 ## License
 
