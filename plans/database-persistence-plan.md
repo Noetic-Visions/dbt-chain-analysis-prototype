@@ -71,6 +71,7 @@ erDiagram
 * CI job runs `alembic upgrade head` in `pytest` workflow to ensure migrations apply.
 
 ### 3.1 Initial Migration Stub
+
 ```python
 from alembic import op
 import sqlalchemy as sa
@@ -143,3 +144,4 @@ class DB:
 | Version | Date | Author | Notes |
 |---------|------|--------|-------|
 | 0.1 | 2024-05-XX | assistant | initial draft |
+
