@@ -10,3 +10,9 @@
 
 These plans serve as an initial starting point (a warm start), but are expected to undergo several iterations of revision.
 
+## License
+
+This project is licensed under the GNU Affero General Public License Version 3 (AGPLv3), the full text of which can be found in the `LICENSE` file.
+
+In summary, this license grants you the freedom to use, study, share, and modify the software. If you distribute modified versions or make the software available as a **network service** (i.e., allowing users to interact with the software over a network without receiving a copy of the code itself, such as a web application, API, or SaaS offering), you **MUST* also provide the source code of your modifications under the same AGPLv3 license. Please review the full license text for detailed terms and conditions.
+
