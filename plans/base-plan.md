@@ -16,7 +16,7 @@ This design follows best practices from Anthropic's "Building Effective Agents" 
 
 ### Tech Stack
 
-The system combines a conversational AI model with supporting frameworks: Python 3.12 as the development language, LangGraph for orchestrating the agent's behavior, Chainlit for the front-end chat UI, and PostgreSQL for persisting data. The diagram below illustrates the high-level architecture and data flow between components:
+The system combines a conversational AI model with supporting frameworks: Python 3.13 as the development language, LangGraph for orchestrating the agent's behavior, Chainlit for the front-end chat UI, and PostgreSQL for persisting data. The diagram below illustrates the high-level architecture and data flow between components:
 
 **Figure:** Finite-state conversation flow for the Chain Analysis agent. Each step corresponds to a stage in the DBT chain analysis (Problem Behavior, Prompting Event, Vulnerabilities, etc.), modeled as states in a LangGraph workflow. The agent transitions through these states sequentially, prompting the user for input at each stage. The vulnerability factors step (Step 3) expands into sub-questions about physical, emotional, substance-related, environmental, and behavioral factors (dashed connections), ensuring day-specific vulnerabilities are thoroughly examined.
 
