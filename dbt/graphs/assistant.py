@@ -15,6 +15,9 @@ model = ChatOpenAI(
     base_url="http://127.0.0.1:1234/v1",
     model="qwen3-30b-a3b",
     api_key="123",
+    temperature=0.6,
+    top_p=0.95,
+    model_kwargs={"extra_body": {"top_k": 40}},
 )
 
 
