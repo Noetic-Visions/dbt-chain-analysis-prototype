@@ -1,4 +1,5 @@
 import time
+from typing import Any, Iterator, Tuple
 
 import chainlit as cl
 from langchain_core.messages import AIMessageChunk, HumanMessage
@@ -7,10 +8,25 @@ from langchain_core.runnables import RunnableConfig
 from dbt.graphs.assistant import assistant_graph
 
 
-async def process_stream_with_thinking(stream, thinking_step, final_answer, start_time):
-    """Process the LangGraph stream and handle thinking content within the step context"""
-    thinking = False
-    has_thinking_content = False
+async def process_stream_with_thinking(
+    stream: Iterator[Tuple[Any, dict]],
+    thinking_step: cl.Step,
+    final_answer: cl.Message,
+    start_time: float,
+) -> bool:
+    """Process the LangGraph stream and handle thinking content within the step context
+
+    Args:
+        stream: Iterator yielding (message, metadata) tuples from LangGraph
+        thinking_step: Chainlit Step object for displaying thinking content
+        final_answer: Chainlit Message object for the final response
+        start_time: Start time (from time.time()) for calculating thinking duration
+
+    Returns:
+        bool: True if thinking content was found, False otherwise
+    """
+    thinking: bool = False
+    has_thinking_content: bool = False
 
     for msg, metadata in stream:
         if (
@@ -39,7 +55,7 @@ async def process_stream_with_thinking(stream, thinking_step, final_answer, star
                     if content[i : i + 8] == "</think>":
                         thinking = False
                         thought_for = round(time.time() - start_time)
-                        thinking_step.name = f"Thought for {thought_for}s"
+                        thinking_step.name = f"reasoning for {thought_for}s"
                         await thinking_step.update()
                         i += 8
                         continue
@@ -71,7 +87,7 @@ async def on_message(message: cl.Message):
     )
 
     # Handle thinking content within the step context
-    async with cl.Step(name="Thinking", default_open=True) as thinking_step:
+    async with cl.Step(name="reasoning", default_open=True) as thinking_step:
         final_answer = cl.Message(content="")
 
         has_thinking = await process_stream_with_thinking(
@@ -80,7 +96,7 @@ async def on_message(message: cl.Message):
 
         # If no thinking content was found, update step to indicate that
         if not has_thinking:
-            thinking_step.name = "No thinking required"
+            thinking_step.name = "reasoning bypass"
             await thinking_step.update()
 
     await final_answer.send()
