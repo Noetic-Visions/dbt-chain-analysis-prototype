@@ -21,7 +21,7 @@ class AssistantState(BaseModel):
 
 def call_model(state: AssistantState):
     # Get summary if it exists
-    summary = state.get("summary", "")
+    summary = state.summary
 
     # If there is summary, then we add it
     if summary:
@@ -29,10 +29,10 @@ def call_model(state: AssistantState):
         system_message = f"Summary of conversation earlier: {summary}"
 
         # Append summary to any newer messages
-        messages = [SystemMessage(content=system_message)] + state["messages"]
+        messages = [SystemMessage(content=system_message)] + state.messages
 
     else:
-        messages = state["messages"]
+        messages = state.messages
 
     response = model.invoke(messages)
     return {"messages": response}
@@ -40,7 +40,7 @@ def call_model(state: AssistantState):
 
 def summarize_conversation(state: AssistantState):
     # First, we get any existing summary
-    summary = state.get("summary", "")
+    summary = state.summary
 
     # Create our summarization prompt
     if summary:
@@ -54,18 +54,18 @@ def summarize_conversation(state: AssistantState):
         summary_message = "Create a summary of the conversation above:"
 
     # Add prompt to our history
-    messages = state["messages"] + [HumanMessage(content=summary_message)]
+    messages = state.messages + [HumanMessage(content=summary_message)]
     response = model.invoke(messages)
 
     # Delete all but the 3 most recent messages
-    delete_messages = [RemoveMessage(id=m.id) for m in state["messages"][:-3]]
+    delete_messages = [RemoveMessage(id=m.id) for m in state.messages[:-3]]
     return {"summary": response.content, "messages": delete_messages}
 
 
 def should_continue(state: AssistantState):
     """Return the next node to execute."""
 
-    messages = state["messages"]
+    messages = state.messages
 
     # If there are more than six messages, then we summarize the conversation
     if len(messages) > 6:
@@ -86,7 +86,7 @@ def build_graph():
     graph.add_conditional_edges("dialogue", should_continue)
     graph.add_edge("summarize_conversation", END)
 
-    workflow = graph.compile(memory=memory)
+    workflow = graph.compile(checkpointer=memory)
 
     return workflow
 

@@ -1,39 +1,36 @@
-from typing import cast
-
 import chainlit as cl
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnableConfig
-from langchain_openai import ChatOpenAI
+from langchain_core.messages import AIMessageChunk, HumanMessage
+from langchain_core.runnables import RunnableConfig
 
-
-@cl.on_chat_start
-async def on_chat_start():
-    llm = ChatOpenAI(
-        base_url="http://127.0.0.1:1234/v1",
-        model="qwen3-30b-a3b",
-        api_key="123",
-        streaming=True,
-    )
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", "You are a helpful assistant."),
-            ("human", "{input}"),
-        ]
-    )
-    runnable = prompt | llm | StrOutputParser()
-    cl.user_session.set("runnable", runnable)
+from dbt.graphs.assistant import assistant_graph
 
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    runnable = cast(Runnable, cl.user_session.get("runnable"))
-    msg = cl.Message(content="")
+    config = {"configurable": {"thread_id": cl.context.session.id}}
 
-    async for chunk in runnable.astream(
-        {"input": message.content},
-        config=RunnableConfig(callbacks=[cl.LangchainCallbackHandler()]),
+    # Use simple config without callbacks to avoid LangSmith tracing errors
+    config_with_thread = RunnableConfig(**config)
+
+    final_answer = cl.Message(content="")
+
+    for msg, metadata in assistant_graph.stream(
+        {"messages": [HumanMessage(content=message.content)]},
+        stream_mode="messages",
+        config=config_with_thread,
     ):
-        await msg.stream_token(chunk)
+        if (
+            msg.content
+            and not isinstance(msg, HumanMessage)
+            and metadata["langgraph_node"] == "dialogue"
+        ):
+            # Handle both string content and message chunks
+            if isinstance(msg, AIMessageChunk):
+                content = str(msg.content) if msg.content else ""
+            else:
+                content = str(msg.content) if msg.content else ""
 
-    await msg.send()
+            if content:
+                await final_answer.stream_token(content)
+
+    await final_answer.send()
