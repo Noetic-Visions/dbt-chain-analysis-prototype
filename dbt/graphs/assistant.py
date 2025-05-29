@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 
 from langchain_core.messages import HumanMessage, RemoveMessage, SystemMessage
@@ -11,13 +12,24 @@ from dbt.loggers import get_logger
 
 logger = get_logger(__name__)
 
-model = ChatOpenAI(
-    base_url="http://127.0.0.1:1234/v1",
-    model="qwen3-30b-a3b",
-    api_key="123",
-    temperature=0.6,
-    top_p=0.95,
-    model_kwargs={"extra_body": {"top_k": 40}},
+
+def clean_qwen_output(ai_message) -> str:
+    """Clean Qwen output by removing <think> tags."""
+    return re.sub(
+        r"<think>.*?</think>", "", ai_message.content, flags=re.DOTALL
+    ).strip()
+
+
+model = (
+    ChatOpenAI(
+        base_url="http://127.0.0.1:1234/v1",
+        model="qwen3-30b-a3b",
+        api_key="123",
+        temperature=0.6,
+        top_p=0.95,
+        model_kwargs={"extra_body": {"top_k": 40}},
+    )
+    | clean_qwen_output
 )
 
 
@@ -66,7 +78,7 @@ def summarize_conversation(state: AssistantState):
 
     # Delete all but the 3 most recent messages
     delete_messages = [RemoveMessage(id=m.id) for m in state.messages[:-3]]
-    return {"summary": response.content, "messages": delete_messages}
+    return {"summary": response, "messages": delete_messages}
 
 
 def should_continue(state: AssistantState):

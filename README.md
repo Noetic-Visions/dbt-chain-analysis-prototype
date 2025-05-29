@@ -23,3 +23,4 @@ In summary, this license grants you the freedom to use, study, share, and modify
 1. [LangGraph Multi-agent Systems](https://langchain-ai.github.io/langgraph/how-tos/multi_agent/#build-multi-agent-systems)
 2. [Chatbot Message Summarization](https://github.com/RoskiDeluge/langgraph-academy/blob/main/module-2/chatbot-summarization.ipynb)
 3. [Settings for Qwen3](https://jan.ai/post/qwen3-settings)
+4. [Custom Output Parsers in Langchain](https://python.langchain.com/docs/how_to/output_parser_custom/)
