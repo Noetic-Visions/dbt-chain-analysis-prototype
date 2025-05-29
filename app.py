@@ -1,3 +1,5 @@
+import time
+
 import chainlit as cl
 from langchain_core.messages import AIMessageChunk, HumanMessage
 from langchain_core.runnables import RunnableConfig
@@ -5,77 +7,12 @@ from langchain_core.runnables import RunnableConfig
 from dbt.graphs.assistant import assistant_graph
 
 
-class ThinkingParser:
-    def __init__(self):
-        self.buffer = ""
-        self.in_thinking = False
-        self.thinking_step = None
+async def process_stream_with_thinking(stream, thinking_step, final_answer, start_time):
+    """Process the LangGraph stream and handle thinking content within the step context"""
+    thinking = False
+    has_thinking_content = False
 
-    async def process_chunk(self, chunk: str, final_answer: cl.Message):
-        """Process a chunk of text, handling <think> blocks separately"""
-        self.buffer += chunk
-
-        while True:
-            if not self.in_thinking:
-                # Look for opening think tag
-                think_start = self.buffer.find("<think>")
-                if think_start == -1:
-                    # No think tag found, stream all current buffer to final answer
-                    if self.buffer:
-                        await final_answer.stream_token(self.buffer)
-                        self.buffer = ""
-                    break
-                else:
-                    # Stream content before think tag to final answer
-                    if think_start > 0:
-                        await final_answer.stream_token(self.buffer[:think_start])
-
-                    # Remove processed content and enter thinking mode
-                    self.buffer = self.buffer[think_start + 7 :]  # 7 = len("<think>")
-                    self.in_thinking = True
-
-                    # Create thinking step
-                    self.thinking_step = cl.Step(name="Thinking", type="thinking")
-                    self.thinking_step.input = "Model is thinking..."
-                    await self.thinking_step.send()
-            else:
-                # Look for closing think tag
-                think_end = self.buffer.find("</think>")
-                if think_end == -1:
-                    # No closing tag yet, stream current buffer to thinking step
-                    if self.buffer:
-                        await self.thinking_step.stream_token(self.buffer)
-                        self.buffer = ""
-                    break
-                else:
-                    # Stream thinking content to step
-                    if think_end > 0:
-                        await self.thinking_step.stream_token(self.buffer[:think_end])
-
-                    # Close thinking step
-                    await self.thinking_step.update()
-
-                    # Remove processed content and exit thinking mode
-                    self.buffer = self.buffer[think_end + 8 :]  # 8 = len("</think>")
-                    self.in_thinking = False
-                    self.thinking_step = None
-
-
-@cl.on_message
-async def on_message(message: cl.Message):
-    config = {"configurable": {"thread_id": cl.context.session.id}}
-
-    # Use simple config without callbacks to avoid LangSmith tracing errors
-    config_with_thread = RunnableConfig(**config)
-
-    final_answer = cl.Message(content="")
-    parser = ThinkingParser()
-
-    for msg, metadata in assistant_graph.stream(
-        {"messages": [HumanMessage(content=message.content)]},
-        stream_mode="messages",
-        config=config_with_thread,
-    ):
+    for msg, metadata in stream:
         if (
             msg.content
             and not isinstance(msg, HumanMessage)
@@ -88,6 +25,62 @@ async def on_message(message: cl.Message):
                 content = str(msg.content) if msg.content else ""
 
             if content:
-                await parser.process_chunk(content, final_answer)
+                # Process content character by character to handle tags properly
+                i = 0
+                while i < len(content):
+                    # Check for <think> tag
+                    if content[i : i + 7] == "<think>":
+                        thinking = True
+                        has_thinking_content = True
+                        i += 7
+                        continue
+
+                    # Check for </think> tag
+                    if content[i : i + 8] == "</think>":
+                        thinking = False
+                        thought_for = round(time.time() - start_time)
+                        thinking_step.name = f"Thought for {thought_for}s"
+                        await thinking_step.update()
+                        i += 8
+                        continue
+
+                    # Stream single character
+                    char = content[i]
+                    if thinking:
+                        await thinking_step.stream_token(char)
+                    else:
+                        await final_answer.stream_token(char)
+
+                    i += 1
+
+    return has_thinking_content
+
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    config = {"configurable": {"thread_id": cl.context.session.id}}
+    config_with_thread = RunnableConfig(**config)
+
+    start = time.time()
+
+    # Create the stream
+    stream = assistant_graph.stream(
+        {"messages": [HumanMessage(content=message.content)]},
+        stream_mode="messages",
+        config=config_with_thread,
+    )
+
+    # Handle thinking content within the step context
+    async with cl.Step(name="Thinking", default_open=True) as thinking_step:
+        final_answer = cl.Message(content="")
+
+        has_thinking = await process_stream_with_thinking(
+            stream, thinking_step, final_answer, start
+        )
+
+        # If no thinking content was found, update step to indicate that
+        if not has_thinking:
+            thinking_step.name = "No thinking required"
+            await thinking_step.update()
 
     await final_answer.send()
