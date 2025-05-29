@@ -4,7 +4,7 @@
 2. This is then factored out into separate plans for separation of concerns:
 
     1. file-structure-plan.md
-    2. langgraph-agent-plan.md 
+    2. langgraph-agent-plan.md
     3. database-persistence-plan.md
     4. chainlit-ui-plan.md
 
@@ -17,3 +17,8 @@ This project is licensed under the GNU Affero General Public License Version 3 (
 
 In summary, this license grants you the freedom to use, study, share, and modify the software. If you distribute modified versions or make the software available as a **network service** (i.e., allowing users to interact with the software over a network without receiving a copy of the code itself, such as a web application, API, or SaaS offering), you **MUST** also provide the source code of your modifications under the same AGPLv3 license. Please review the full license text for detailed terms and conditions.
 
+## Resources:
+
+
+1. [LangGraph Multi-agent Systems](https://langchain-ai.github.io/langgraph/how-tos/multi_agent/#build-multi-agent-systems)
+2. [Chatbot Message Summarization](https://github.com/RoskiDeluge/langgraph-academy/blob/main/module-2/chatbot-summarization.ipynb)

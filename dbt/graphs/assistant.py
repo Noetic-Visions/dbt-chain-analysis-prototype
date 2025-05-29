@@ -7,6 +7,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import AnyMessage, add_messages
 from pydantic import BaseModel, Field
 
+from dbt.loggers import get_logger
+
+logger = get_logger(__name__)
+
 model = ChatOpenAI(
     base_url="http://127.0.0.1:1234/v1",
     model="qwen3-30b-a3b",
@@ -69,6 +73,7 @@ def should_continue(state: AssistantState):
 
     # If there are more than six messages, then we summarize the conversation
     if len(messages) > 6:
+        logger.info("Summarizing conversation")
         return "summarize_conversation"
 
     # Otherwise we can just end
