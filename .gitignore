@@ -175,3 +175,6 @@ cython_debug/
 agent-sops/*
 
 *.pdf
+DBT skills training.md
+*.json
+dbt_skills_training.md

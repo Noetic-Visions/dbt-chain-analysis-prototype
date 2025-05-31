@@ -19,6 +19,12 @@ dependencies = [
     "typer>=0.16.0",
 ]
 
+[project.scripts]
+mistral-ocr = "scripts.mistral_ocr:app"
+
+[tool.setuptools.packages.find]
+include = ["scripts*"]
+
 [tool.ruff]
 # Set the line length to match Black's default
 line-length = 88
