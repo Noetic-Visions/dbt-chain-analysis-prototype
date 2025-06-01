@@ -3,8 +3,9 @@ name = "dbt-chain-analysis-prototype"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
+    "accelerate>=1.7.0",
     "chainlit>=2.5.5",
     "dynaconf>=3.2.11",
     "jupyter>=1.1.1",
@@ -13,10 +14,15 @@ dependencies = [
     "langchain-openai>=0.3.17",
     "langgraph>=0.4.5",
     "mistralai>=1.8.1",
+    "numpy>=2.2.6",
+    "peft>=0.15.2",
     "pydantic>=2.11.4",
     "python-dotenv>=1.1.0",
+    "rapidfuzz>=3.13.0",
     "rich>=14.0.0",
     "ruff>=0.11.10",
+    "torch>=2.7.0",
+    "transformers>=4.52.4",
     "typer>=0.16.0",
 ]
 
@@ -94,3 +100,6 @@ docstring-code-format = true
 
 # Set the line length limit used when formatting code snippets in docstrings
 docstring-code-line-length = "dynamic"
+
+[tool.uv]
+package = true
