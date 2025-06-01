@@ -41,7 +41,7 @@ class ImageAnnotation(BaseModel):
     summary: str = Field(description="A summary of the image")
 
 
-def replace_images_in_markdown(markdown_str: str, images_dict: dict) -> str:
+def embed_images_in_markdown(markdown_str: str, images_dict: dict) -> str:
     logger.debug(f"Replacing {len(images_dict)} images in markdown")
     for img_name, base64_str in images_dict.items():
         markdown_str = markdown_str.replace(
@@ -51,7 +51,47 @@ def replace_images_in_markdown(markdown_str: str, images_dict: dict) -> str:
     return markdown_str
 
 
-def get_combined_markdown(ocr_response: OCRResponse) -> str:
+def should_be_contiguous(prev_page: str, next_page: str) -> bool:
+    """
+    Determine if two consecutive pages should be joined contiguously (single space)
+    rather than with a paragraph break (double newline).
+    """
+    if not prev_page or not next_page:
+        return False
+
+    prev_page = prev_page.strip()
+    next_page = next_page.strip()
+
+    # Check if previous page ends mid-sentence (no terminal punctuation)
+    if prev_page and prev_page[-1] not in ".!?":
+        # Next page starts with lowercase (likely continuation)
+        if next_page and next_page[0].islower():
+            return True
+        # Previous page ends with comma, dash, or conjunction
+        if prev_page.endswith((",", "-", "and", "or", "but")):
+            return True
+
+    # Check for list continuation (previous ends with number/letter, next starts with number/letter)
+    import re
+
+    prev_list_pattern = r"^\s*\d+\.\s*.*$|^\s*[a-zA-Z]\.\s*.*$"
+    next_list_pattern = r"^\s*\d+\.\s*|^\s*[a-zA-Z]\.\s*"
+
+    if re.search(prev_list_pattern, prev_page.split("\n")[-1]) and re.search(
+        next_list_pattern, next_page.split("\n")[0]
+    ):
+        return True
+
+    # Check for table continuation (both pages have table-like structure)
+    prev_has_table = "|" in prev_page.split("\n")[-1]
+    next_has_table = "|" in next_page.split("\n")[0]
+    if prev_has_table and next_has_table:
+        return True
+
+    return False
+
+
+def get_combined_markdown(ocr_response: OCRResponse, embed_images: bool = True) -> str:
     logger.info(f"Combining markdown from {len(ocr_response.pages)} pages")
     markdowns: list[str] = []
     for i, page in enumerate(ocr_response.pages):
@@ -59,67 +99,37 @@ def get_combined_markdown(ocr_response: OCRResponse) -> str:
         image_data = {}
         for img in page.images:
             image_data[img.id] = img.image_base64
-        markdowns.append(replace_images_in_markdown(page.markdown, image_data))
+        if embed_images:
+            page_markdown = embed_images_in_markdown(page.markdown, image_data)
+        else:
+            page_markdown = page.markdown
 
-    combined_markdown = "\n\n".join(markdowns)
+        # Strip whitespace and only add non-empty pages
+        page_markdown = page_markdown.strip()
+        if page_markdown:
+            markdowns.append(page_markdown)
+
+    # Smart joining based on content analysis
+    if not markdowns:
+        return ""
+
+    combined_parts = [markdowns[0]]
+    for i in range(1, len(markdowns)):
+        prev_page = markdowns[i - 1]
+        current_page = markdowns[i]
+
+        if should_be_contiguous(prev_page, current_page):
+            # Join with single space for contiguous content
+            combined_parts.append(" " + current_page)
+            logger.debug(f"Joining pages {i} and {i + 1} contiguously")
+        else:
+            # Join with paragraph break for separate content
+            combined_parts.append("\n\n" + current_page)
+            logger.debug(f"Joining pages {i} and {i + 1} with paragraph break")
+
+    combined_markdown = "".join(combined_parts)
     logger.info(f"Combined markdown created with {len(combined_markdown)} characters")
     return combined_markdown
-
-
-def ocr_pdf_file_to_markdown(file_path: str, output_path: str):
-    logger.info(f"Starting OCR process for file: {file_path}")
-
-    try:
-        # Read PDF
-        pdf_file = Path(file_path)
-        if not pdf_file.is_file():
-            logger.error(f"File not found: {file_path}")
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        logger.info(
-            f"Reading PDF file: {pdf_file.name} ({pdf_file.stat().st_size} bytes)"
-        )
-
-        # Upload PDF
-        logger.info("Uploading PDF to Mistral API")
-        uploaded_file = client.files.upload(
-            file={
-                "file_name": pdf_file.stem,
-                "content": pdf_file.read_bytes(),
-            },
-            purpose="ocr",
-        )
-        logger.info(f"File uploaded successfully with ID: {uploaded_file.id}")
-
-        # Get signed URL
-        logger.info("Getting signed URL for uploaded file")
-        signed_url = client.files.get_signed_url(file_id=uploaded_file.id, expiry=1)
-        logger.debug(f"Signed URL obtained: {signed_url.url[:50]}...")
-
-        # OCR
-        logger.info("Starting OCR processing")
-        pdf_response = client.ocr.process(
-            document=DocumentURLChunk(document_url=signed_url.url),
-            model="mistral-ocr-latest",
-            include_image_base64=True,
-        )
-        logger.info("OCR processing completed successfully")
-
-        # Output to Markdown
-        logger.info("Converting OCR response to markdown")
-        output_markdown = get_combined_markdown(pdf_response)
-
-        logger.info(f"Writing output to: {output_path}")
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(output_markdown)
-
-        logger.info(
-            f"OCR process completed successfully. Output saved to: {output_path}"
-        )
-
-    except Exception as e:
-        logger.error(f"OCR process failed: {str(e)}", exc_info=True)
-        raise
 
 
 def ocr_pdf_object(
@@ -206,7 +216,7 @@ def ocr_pdf_object(
         raise
 
 
-@app.command(name="run")
+@app.command(name="run", help="Convert a PDF file to a markdown file with Mistral OCR")
 def run(
     pdf_path: str = typer.Argument(..., help="Path to the PDF file to process"),
     output_path: str = typer.Argument(..., help="Path to the output file"),
@@ -219,11 +229,15 @@ def run(
         "--persist-json",
         help="Whether to persist the JSON response to a file",
     ),
+    embed_md_images: bool = typer.Option(
+        True,
+        help="Whether to embed images in the markdown file",
+    ),
 ):
     result: OCRResponse = ocr_pdf_object(pdf_path, file_id, ImageAnnotation)
 
     markdown_path = Path(output_path).with_suffix(".md")
-    output_markdown = get_combined_markdown(result)
+    output_markdown = get_combined_markdown(result, embed_images=embed_md_images)
     with open(markdown_path, "w", encoding="utf-8") as f:
         f.write(output_markdown)
     logger.info(f"Markdown file persisted to {markdown_path}")
