@@ -8,10 +8,7 @@ from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
 
 # Import our file search tools
-from fixed_segmented_search import (
-    FixedAgentFileSearchTool,
-    FixedSegmentedFileSearchTool,
-)
+from fixed_segmented_search import FileSearchTool, SegmentedFileSearchTool
 
 
 # Input schemas for all tools
@@ -72,18 +69,18 @@ _core_searcher = None
 def get_search_agent():
     global _search_agent
     if _search_agent is None:
-        _search_agent = FixedAgentFileSearchTool()
+        _search_agent = FileSearchTool()
     return _search_agent
 
 
 def get_core_searcher():
     global _core_searcher
     if _core_searcher is None:
-        _core_searcher = FixedSegmentedFileSearchTool(segment_size=100, overlap=10)
+        _core_searcher = SegmentedFileSearchTool(segment_size=100, overlap=10)
     return _core_searcher
 
 
-class LangGraphFileSearchTool(BaseTool):
+class AgentFileSearchTool(BaseTool):
     """Enhanced file search tool with regex support."""
 
     name: str = "search_file"
@@ -130,7 +127,7 @@ class LangGraphFileSearchTool(BaseTool):
             return f"❌ Search failed: {str(e)}"
 
 
-class LangGraphFileSegmentTool(BaseTool):
+class AgentFileSegmentTool(BaseTool):
     """File segment extraction tool."""
 
     name: str = "get_file_segment"
@@ -169,7 +166,7 @@ class LangGraphFileSegmentTool(BaseTool):
         return "\n".join(lines)
 
 
-class LangGraphFileStatsTool(BaseTool):
+class FileStatsTool(BaseTool):
     """File statistics and information tool."""
 
     name: str = "get_file_stats"
@@ -198,7 +195,7 @@ class LangGraphFileStatsTool(BaseTool):
             return f"❌ Failed to get file stats: {str(e)}"
 
 
-class LangGraphContextAroundMatchTool(BaseTool):
+class ContextAroundMatchTool(BaseTool):
     """Tool to get context around a specific line number."""
 
     name: str = "get_context_around_line"
@@ -238,7 +235,7 @@ class LangGraphContextAroundMatchTool(BaseTool):
             return f"❌ Failed to get context: {str(e)}"
 
 
-class LangGraphSegmentSearchTool(BaseTool):
+class SegmentSearchTool(BaseTool):
     """Tool to search within a specific file segment."""
 
     name: str = "search_in_segment"
@@ -290,11 +287,11 @@ def create_comprehensive_agent() -> StateGraph:
 
     # Initialize ALL available tools
     tools = [
-        LangGraphFileSearchTool(),
-        LangGraphFileSegmentTool(),
-        LangGraphFileStatsTool(),
-        LangGraphContextAroundMatchTool(),
-        LangGraphSegmentSearchTool(),
+        AgentFileSearchTool(),
+        AgentFileSegmentTool(),
+        FileStatsTool(),
+        ContextAroundMatchTool(),
+        SegmentSearchTool(),
     ]
 
     # Initialize LLM with tools - fixed parameter warning
@@ -347,19 +344,19 @@ def test_tools_directly():
 
     # Test file stats
     print("\n1. Testing file stats tool:")
-    stats_tool = LangGraphFileStatsTool()
+    stats_tool = FileStatsTool()
     result = stats_tool._run("fixed_segmented_search.py")
     print(result)
 
     # Test file search
     print("\n2. Testing file search tool:")
-    search_tool = LangGraphFileSearchTool()
+    search_tool = AgentFileSearchTool()
     result = search_tool._run("fixed_segmented_search.py", "class", max_results=3)
     print(result)
 
     # Test file segment
     print("\n3. Testing file segment tool:")
-    segment_tool = LangGraphFileSegmentTool()
+    segment_tool = AgentFileSegmentTool()
     result = segment_tool._run("fixed_segmented_search.py", 1, 20)
     print(result)
 

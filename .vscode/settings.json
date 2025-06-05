@@ -5,7 +5,7 @@
     "source.fixAll.ruff": "explicit",
     "source.organizeImports.ruff": "explicit"
   },
-  
+
   // Python-specific settings
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
@@ -18,12 +18,28 @@
     "editor.tabSize": 4,
     "editor.insertSpaces": true
   },
-  
+
+  // Pylance (Python Language Server) settings
+  "python.analysis.typeCheckingMode": "standard",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.importFormat": "absolute",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "error",
+    "reportMissingTypeStubs": "information",
+    "reportUnusedImport": "information",
+    "reportUnusedVariable": "information",
+    "reportDuplicateImport": "warning"
+  },
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.extraPaths": [],
+
   // Ruff extension settings
   "ruff.enable": true,
   "ruff.organizeImports": true,
   "ruff.fixAll": true,
-  
+
   // Clean up cache files from explorer
   "files.exclude": {
     "**/__pycache__": true,
@@ -31,7 +47,7 @@
     "**/.mypy_cache": true,
     "**/.ruff_cache": true
   },
-  
+
   // Exclude from file watching to improve performance
   "files.watcherExclude": {
     "**/.git/objects/**": true,
@@ -42,8 +58,8 @@
     "**/.mypy_cache/**": true,
     "**/.ruff_cache/**": true
   },
-  
+
   // Ensure final newlines and trim whitespace
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true
-} 
+}

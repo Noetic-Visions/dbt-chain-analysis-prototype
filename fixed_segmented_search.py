@@ -25,7 +25,7 @@ class SearchMatch:
     segment: FileSegment
 
 
-class FixedSegmentedFileSearchTool:
+class SegmentedFileSearchTool:
     """
     A file search tool that scans files in segments without subprocess calls.
     Uses only Python file operations for reliability.
@@ -192,13 +192,13 @@ class FixedSegmentedFileSearchTool:
         return self.extract_segment(match.file_path, start_line, end_line)
 
 
-class FixedAgentFileSearchTool:
+class FileSearchTool:
     """
     Wrapper class that provides a clean interface for LLM agents.
     """
 
     def __init__(self):
-        self.searcher = FixedSegmentedFileSearchTool(segment_size=100, overlap=10)
+        self.searcher = SegmentedFileSearchTool(segment_size=100, overlap=10)
 
     def search_file(self, file_path: str, query: str, max_results: int = 5) -> Dict:
         """
