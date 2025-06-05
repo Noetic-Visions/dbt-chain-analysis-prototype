@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 # Import our file search tools
 from fixed_segmented_search import FileSearchTool, SegmentedFileSearchTool
 
+MODEL = "qwen3-30b-a3b"
+
 
 # Input schemas for all tools
 class FileSearchInput(BaseModel):
@@ -329,7 +331,7 @@ def create_comprehensive_agent() -> StateGraph:
     # Initialize LLM with tools - fixed parameter warning
     llm = ChatOpenAI(
         base_url="http://127.0.0.1:1234/v1",
-        model="qwen3-30b-a3b",
+        model=MODEL,
         api_key="123",
         temperature=0.6,
         top_p=0.95,
@@ -402,7 +404,7 @@ def test_llm_connection():
     try:
         llm = ChatOpenAI(
             base_url="http://127.0.0.1:1234/v1",
-            model="qwen3-30b-a3b",
+            model=MODEL,
             api_key="123",
             temperature=0.6,
             top_p=0.95,
@@ -446,7 +448,7 @@ if __name__ == "__main__":
             {
                 "messages": [
                     HumanMessage(
-                        content="Get the file statistics for fixed_segmented_search.py, then find all the functions and classes; list them all."
+                        content="Get the file statistics for fixed_segmented_search.py, then find all the functions and classes; list them all. You MUST find all the functions and classes! You MUST use the tools provided to you and produce the results."
                     )
                 ]
             },

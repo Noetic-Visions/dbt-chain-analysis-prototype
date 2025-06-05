@@ -24,3 +24,4 @@ In summary, this license grants you the freedom to use, study, share, and modify
 3. [Settings for Qwen3](https://jan.ai/post/qwen3-settings)
 4. [Custom Output Parsers in Langchain](https://python.langchain.com/docs/how_to/output_parser_custom/)
 5. [Multi-agent Supervisor Pattern](https://langchain-ai.github.io/langgraph/tutorials/multi_agent/agent_supervisor/?h=supervisor#multi-agent-supervisor)
+6. [Lessons from Cursor's System Prompt](https://byteatatime.dev/posts/cursor-prompt-analysis/)
