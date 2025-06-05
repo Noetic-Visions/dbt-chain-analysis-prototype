@@ -3,6 +3,7 @@
 
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from pydantic import BaseModel, Field
@@ -214,12 +215,27 @@ class ContextAroundMatchTool(BaseTool):
         try:
             core_searcher = get_core_searcher()
             start_line = max(1, line_number - context_lines)
-            end_line = line_number + context_lines
 
-            segment = core_searcher.extract_segment(file_path, start_line, end_line)
+            # Fetch total_file_lines and cap end_line
+            total_file_lines = core_searcher.get_file_line_count(file_path)
+            if (
+                total_file_lines == 0 and start_line == 1
+            ):  # Handle empty file case gracefully for context
+                return f"🔍 Context around line {line_number} in {file_path} (±{context_lines} lines): File is empty."
+
+            actual_end_line = min(line_number + context_lines, total_file_lines)
+            # Ensure start_line is not greater than actual_end_line, can happen if line_number is near EOF
+            start_line = min(start_line, actual_end_line)
+
+            segment = core_searcher.extract_segment(
+                file_path,
+                start_line,
+                actual_end_line,
+                total_file_lines=total_file_lines,
+            )
 
             lines = [
-                f"🔍 Context around line {line_number} in {file_path} (±{context_lines} lines):\n"
+                f"🔍 Context around line {line_number} in {file_path} (±{context_lines} lines, segment {start_line}-{actual_end_line} of {total_file_lines}):"
             ]
 
             content_lines = segment.content.split("\n")
@@ -260,15 +276,31 @@ class SegmentSearchTool(BaseTool):
         """Search within a specific segment."""
         try:
             core_searcher = get_core_searcher()
-            segment = core_searcher.extract_segment(file_path, start_line, end_line)
+
+            # Fetch total_file_lines and cap end_line
+            total_file_lines = core_searcher.get_file_line_count(file_path)
+            if total_file_lines == 0:
+                return f"🔍 No matches for '{query}' in segment lines {start_line}-{end_line} of {file_path}: File is empty or unreadable."
+
+            actual_start_line = max(1, min(start_line, total_file_lines))
+            actual_end_line = max(
+                actual_start_line, min(end_line, total_file_lines)
+            )  # ensure end >= start
+
+            segment = core_searcher.extract_segment(
+                file_path,
+                actual_start_line,
+                actual_end_line,
+                total_file_lines=total_file_lines,
+            )
             matches = core_searcher.search_in_segment(segment, query, use_regex)
 
             if not matches:
-                return f"🔍 No matches for '{query}' in segment lines {start_line}-{end_line} of {file_path}"
+                return f"🔍 No matches for '{query}' in segment lines {actual_start_line}-{actual_end_line} of {file_path} (total lines: {total_file_lines})"
 
             search_type = "regex pattern" if use_regex else "text pattern"
             lines = [
-                f"🔍 Found {len(matches)} matches for {search_type} '{query}' in segment {start_line}-{end_line}:\n"
+                f"🔍 Found {len(matches)} matches for {search_type} '{query}' in segment {actual_start_line}-{actual_end_line} of {file_path} (total lines: {total_file_lines}):"
             ]
 
             for i, match in enumerate(matches, 1):
@@ -334,8 +366,9 @@ def create_comprehensive_agent() -> StateGraph:
         "agent", should_continue, {"tools": "tools", END: END}
     )
     workflow.add_edge("tools", "agent")
+    memory = MemorySaver()
 
-    return workflow.compile()
+    return workflow.compile(checkpointer=memory)
 
 
 def test_tools_directly():
@@ -413,10 +446,11 @@ if __name__ == "__main__":
             {
                 "messages": [
                     HumanMessage(
-                        content="Get the file statistics for fixed_segmented_search.py"
+                        content="Get the file statistics for fixed_segmented_search.py, then find all the functions and classes; list them all."
                     )
                 ]
-            }
+            },
+            {"configurable": {"thread_id": "test-thread-1"}},
         )
 
         print("✅ Simple test completed!")
@@ -428,4 +462,4 @@ if __name__ == "__main__":
 
         traceback.print_exc()
 
-    print("\n�� Test completed!")
+    print("\n✅ Test completed!")

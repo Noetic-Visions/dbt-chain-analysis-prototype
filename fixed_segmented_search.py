@@ -1,3 +1,4 @@
+import itertools
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +52,11 @@ class SegmentedFileSearchTool:
             return 0
 
     def extract_segment(
-        self, file_path: str, start_line: int, end_line: int
+        self,
+        file_path: str,
+        start_line: int,
+        end_line: int,
+        total_file_lines: Optional[int] = None,
     ) -> FileSegment:
         """
         Extract a segment of lines from a file using Python.
@@ -60,27 +65,28 @@ class SegmentedFileSearchTool:
             file_path: Path to the file
             start_line: Starting line number (1-indexed)
             end_line: Ending line number (1-indexed)
+            total_file_lines: Optional total number of lines in the file
 
         Returns:
             FileSegment object containing the extracted content
         """
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.readlines()
-
-            # Convert to 0-indexed for slicing
-            start_idx = max(0, start_line - 1)
-            end_idx = min(len(lines), end_line)
-
-            segment_lines = lines[start_idx:end_idx]
-            content = "".join(segment_lines)
+                # Convert to 0-indexed for slicing with islice
+                start_idx = max(0, start_line - 1)
+                # islice's stop is exclusive, and lines are 0-indexed
+                # if end_line is 1-indexed inclusive, then for islice it's just end_line
+                # e.g., lines 1-5 (0-4): islice(f, 0, 5)
+                segment_lines_iter = itertools.islice(f, start_idx, end_line)
+                segment_lines = list(segment_lines_iter)
+                content = "".join(segment_lines)
 
             return FileSegment(
                 file_path=file_path,
                 start_line=start_line,
-                end_line=end_line,
+                end_line=end_line,  # This end_line is the requested one, not necessarily actual if file is shorter
                 content=content,
-                total_lines=len(lines),
+                total_lines=total_file_lines,  # Use passed total_file_lines
             )
         except Exception as e:
             raise RuntimeError(f"Failed to extract segment from {file_path}: {e}")
@@ -152,7 +158,9 @@ class SegmentedFileSearchTool:
             end_line = min(current_line + self.segment_size - 1, total_lines)
 
             # Extract segment and search
-            segment = self.extract_segment(file_path, current_line, end_line)
+            segment = self.extract_segment(
+                file_path, current_line, end_line, total_file_lines=total_lines
+            )
             matches = self.search_in_segment(segment, pattern, use_regex=False)
 
             all_matches.extend(matches)
@@ -187,9 +195,18 @@ class SegmentedFileSearchTool:
             FileSegment with extended context
         """
         start_line = max(1, match.line_number - context_lines)
-        end_line = match.line_number + context_lines
+        # Ensure end_line for context doesn't exceed total lines if known,
+        # or just calculate based on context_lines.
+        # We need total_lines to properly cap end_line.
+        total_file_lines = self.get_file_line_count(match.file_path)
+        actual_end_line = min(match.line_number + context_lines, total_file_lines)
 
-        return self.extract_segment(match.file_path, start_line, end_line)
+        return self.extract_segment(
+            match.file_path,
+            start_line,
+            actual_end_line,
+            total_file_lines=total_file_lines,
+        )
 
 
 class FileSearchTool:
@@ -254,7 +271,11 @@ class FileSearchTool:
             Dictionary with segment content and metadata
         """
         try:
-            segment = self.searcher.extract_segment(file_path, start_line, end_line)
+            # Fetch total_lines to pass to extract_segment
+            total_file_lines = self.searcher.get_file_line_count(file_path)
+            segment = self.searcher.extract_segment(
+                file_path, start_line, end_line, total_file_lines=total_file_lines
+            )
 
             return {
                 "success": True,
