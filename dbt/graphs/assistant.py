@@ -1,12 +1,17 @@
 import re
 from typing import Annotated
 
-from langchain_core.messages import HumanMessage, RemoveMessage, SystemMessage
+from langchain_core.messages import (
+    AnyMessage,
+    HumanMessage,
+    RemoveMessage,
+    SystemMessage,
+)
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.message import AnyMessage, add_messages
-from pydantic import BaseModel, Field
+from langgraph.graph.message import add_messages
+from pydantic import BaseModel, Field, SecretStr
 
 from dbt.loggers import get_logger
 
@@ -24,7 +29,7 @@ model = (
     ChatOpenAI(
         base_url="http://127.0.0.1:1234/v1",
         model="qwen3-30b-a3b",
-        api_key="123",
+        api_key=SecretStr("123"),
         temperature=0.6,
         top_p=0.95,
         model_kwargs={"extra_body": {"top_k": 40}},
@@ -77,7 +82,7 @@ def summarize_conversation(state: AssistantState):
     response = model.invoke(messages)
 
     # Delete all but the 3 most recent messages
-    delete_messages = [RemoveMessage(id=m.id) for m in state.messages[:-3]]
+    delete_messages = [RemoveMessage(id=m.id) for m in state.messages[:-3] if m.id]
     return {"summary": response, "messages": delete_messages}
 
 
